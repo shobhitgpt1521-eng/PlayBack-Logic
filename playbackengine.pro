@@ -10,18 +10,25 @@ unix:!macx: LIBS += -lgstpbutils-1.0
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    FfmpegExporter.cpp \
     FileSelector.cpp \
+    RangeSlider.cpp \
     StitchingPlayer.cpp \
     TimelineBuilder.cpp \
+    TrimDialog.cpp \
     VideoPlayer.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
+    FfmpegExporter.h \
     FileSelector.h \
+    RangeSlider.h \
     SegmentMeta.h \
+    SegmentSlider.h \
     StitchingPlayer.h \
     TimelineBuilder.h \
+    TrimDialog.h \
     VideoPlayer.h \
     mainwindow.h
 
@@ -32,3 +39,6 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+
+

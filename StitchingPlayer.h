@@ -27,6 +27,8 @@ public:
 signals:
     void reachedEOS();
     void errorText(const QString&);
+    void globalPositionSec(int sec);        // <— NEW (for slider)
+    void segmentChanged(int index);
 
 private slots:
     void onPlayerEos();

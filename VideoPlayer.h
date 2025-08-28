@@ -3,6 +3,7 @@
 #include <QString>
 #include <QtGlobal>
 #include <glib.h>
+#include <QTimer>
 
 typedef struct _GstElement GstElement;
 typedef struct _GstBus     GstBus;
@@ -24,6 +25,9 @@ public:
 signals:
     void eos();
     void errorText(const QString&);
+    void positionNs(gint64 pos_ns);   // <— NEW
+    void durationNs(gint64 dur_ns);   // <— NEW
+
 
 private:
     // pipeline
@@ -42,4 +46,5 @@ private:
 
     // bus
     static gboolean bus_cb(GstBus*, GstMessage*, gpointer self);
+    QTimer* posTimer = nullptr;
 };

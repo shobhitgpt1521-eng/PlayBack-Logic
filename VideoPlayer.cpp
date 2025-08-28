@@ -1,5 +1,6 @@
 #include "VideoPlayer.h"
 #include <QDebug>
+#include <QTimer>
 #include <gst/gst.h>
 #include <gst/video/videooverlay.h>
 
@@ -7,6 +8,17 @@ static inline GstElement* mk(const char* f) { return gst_element_factory_make(f,
 
 VideoPlayer::VideoPlayer(QObject* parent) : QObject(parent) {
     gst_init(nullptr, nullptr);
+
+    posTimer = new QTimer(this);
+    connect(posTimer, &QTimer::timeout, this, [this]{
+        if (!pipeline) return;
+        gint64 pos = 0, dur = 0;
+        if (gst_element_query_position(pipeline, GST_FORMAT_TIME, &pos))
+            emit positionNs(pos);
+        if (gst_element_query_duration(pipeline, GST_FORMAT_TIME, &dur))
+            emit durationNs(dur);
+    });
+    posTimer->start(200);
 }
 
 VideoPlayer::~VideoPlayer() { teardown(); }
@@ -23,7 +35,7 @@ bool VideoPlayer::open(const QString& path) {
     filesrc   = mk("filesrc");
     demux     = mk("qtdemux");
     parser    = mk("h264parse");
-    decoder   = mk("avdec_h264");      // stable software decode
+    decoder   = mk("avdec_h264");
     vconv     = mk("videoconvert");
     videosink = mk("glimagesink");
     if (!videosink) videosink = mk("ximagesink");
@@ -40,7 +52,6 @@ bool VideoPlayer::open(const QString& path) {
 
     gst_bin_add_many(GST_BIN(pipeline), filesrc, demux, parser, decoder, vconv, videosink, nullptr);
 
-    // Static links
     if (!gst_element_link_many(parser, decoder, vconv, videosink, nullptr)) {
         emit errorText("Link failed: parser→decoder→vconv→sink");
         teardown(); return false;
@@ -50,7 +61,6 @@ bool VideoPlayer::open(const QString& path) {
         teardown(); return false;
     }
 
-    // Dynamic pad: qtdemux → h264parse (video only)
     g_signal_connect(demux, "pad-added",
         G_CALLBACK(+[] (GstElement*, GstPad* pad, gpointer user) {
             auto self = static_cast<VideoPlayer*>(user);
@@ -67,18 +77,21 @@ bool VideoPlayer::open(const QString& path) {
             gst_object_unref(sinkPad);
         }), this);
 
-    // Bus
     GstBus* bus = gst_element_get_bus(pipeline);
     gst_bus_add_watch(bus, &VideoPlayer::bus_cb, this);
     gst_object_unref(bus);
 
-    // Set file and bind window
     g_object_set(filesrc, "location", path.toUtf8().constData(), nullptr);
     bindOverlay();
 
-    // Preroll then pause (caller can play)
     gst_element_set_state(pipeline, GST_STATE_PAUSED);
     gst_element_get_state(pipeline, nullptr, nullptr, 3 * GST_SECOND);
+
+    // push initial duration after preroll
+    gint64 dur = 0;
+    if (gst_element_query_duration(pipeline, GST_FORMAT_TIME, &dur))
+        emit durationNs(dur);
+
     return true;
 }
 

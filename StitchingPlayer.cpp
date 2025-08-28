@@ -1,15 +1,27 @@
 #include "StitchingPlayer.h"
 #include "VideoPlayer.h"
 #include <QDebug>
+#include <gst/gst.h>   // GST_SECOND
 
 StitchingPlayer::StitchingPlayer(QObject* parent) : QObject(parent) {}
 
 void StitchingPlayer::attachPlayer(VideoPlayer* p) {
     player = p;
     if (!player) return;
+
     if (winHandle) player->setWindowHandle(winHandle);
+
+    // Propagate player events
     connect(player, SIGNAL(eos()), this, SLOT(onPlayerEos()));
     connect(player, SIGNAL(errorText(QString)), this, SIGNAL(errorText(QString)));
+
+    // Map file-local position → global seconds for the UI slider
+    connect(player, &VideoPlayer::positionNs, this, [this](gint64 inSegNs){
+        if (offsets.isEmpty()) return;
+        const qint64 base = (curIndex >= 0 && curIndex < offsets.size()) ? offsets[curIndex] : 0;
+        const qint64 global = base + inSegNs;
+        emit globalPositionSec(int(global / GST_SECOND));
+    });
 }
 
 void StitchingPlayer::setVideoWinId(quintptr wid) {
@@ -36,6 +48,8 @@ void StitchingPlayer::startIndex(int idx) {
     if (idx < 0) idx = 0;
     if (idx > (int)paths.size()-1) idx = (int)paths.size()-1;
     curIndex = idx;
+
+    emit segmentChanged(curIndex);  // notify UI for tick highlighting etc.
 
     if (!player->open(paths[curIndex])) {
         emit errorText(QString("Failed to open %1").arg(paths[curIndex]));
@@ -74,7 +88,7 @@ bool StitchingPlayer::seekGlobalNs(qint64 t_ns) {
     int idx = indexForNs(t_ns, &inSeg);
 
     if (idx != curIndex) {
-        // cross-file seek: rebuild on that file then local seek
+
         startIndex(idx);
     }
     return player->seekNs(inSeg);

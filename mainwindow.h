@@ -8,6 +8,10 @@
 #include "SegmentMeta.h"
 #include "VideoPlayer.h"
 #include "StitchingPlayer.h"
+#include "SegmentSlider.h"
+#include "TrimDialog.h"
+#include "FfmpegExporter.h"
+#include <QDir>
 
 class QPushButton; class QSlider; class QLabel; class QWidget;
 
@@ -21,6 +25,7 @@ private slots:
     void startPlayback();
     void stopPlayback();
     void onSeekMoved(int sec);
+    void openTrim();
 
 private:
     // dynamic UI
@@ -28,9 +33,9 @@ private:
     QPushButton* btnBuild  = nullptr;
     QPushButton* btnPlay   = nullptr;
     QPushButton* btnStop   = nullptr;
-    QSlider*     slider    = nullptr;
-    QLabel*      status    = nullptr;
 
+    QLabel*      status    = nullptr;
+    SegmentSlider* slider = nullptr;
     // data
     QVector<SegmentMeta> metas;
     qint64               total_ns = 0;
@@ -42,4 +47,7 @@ private:
     // config
     QString dir = "/tmp/cam0";
     QString pattern = "cam0_*.mkv";
+    //trim
+    QPushButton* btnTrim = nullptr;
+    FfmpegExporter* exporter = nullptr;
 };
