@@ -13,7 +13,6 @@ class StitchingPlayer : public QObject {
 public:
     explicit StitchingPlayer(QObject* parent=nullptr);
 
-    // keep the same API as before
     void setVideoWinId(quintptr wid);
     void setTimeline(const QVector<SegmentMeta>& metas);
     void play();
@@ -21,13 +20,14 @@ public:
     bool seekGlobalNs(qint64 t_ns);
     qint64 totalNs() const { return total_ns; }
 
-    // wire the external player
+    // new
+    void setRate(double r);                 // implemented in .cpp
     void attachPlayer(VideoPlayer* p);
 
 signals:
     void reachedEOS();
     void errorText(const QString&);
-    void globalPositionSec(int sec);        // <— NEW (for slider)
+    void globalPositionSec(int sec);
     void segmentChanged(int index);
 
 private slots:
@@ -36,16 +36,16 @@ private slots:
 private:
     // external single-file player
     VideoPlayer* player = nullptr;
-    quintptr     winHandle = 0;   // stored until player is attached
+    quintptr     winHandle = 0;
+    double       desiredRate_ = 1.0;
 
     // timeline
-    QStringList      paths;      // plain file paths
-    QVector<qint64>  offsets;    // cumulative start times
-    QVector<qint64>  durations;  // per-file durations
+    QStringList      paths;
+    QVector<qint64>  offsets;
+    QVector<qint64>  durations;
     qint64           total_ns = 0;
     int              curIndex = 0;
 
-    // helpers
     void startIndex(int idx);
     int  indexForNs(qint64 t_ns, qint64* inSegNs=nullptr) const;
 };

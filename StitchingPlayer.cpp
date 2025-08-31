@@ -1,7 +1,7 @@
 #include "StitchingPlayer.h"
 #include "VideoPlayer.h"
 #include <QDebug>
-#include <gst/gst.h>   // GST_SECOND
+#include <gst/gst.h>
 
 StitchingPlayer::StitchingPlayer(QObject* parent) : QObject(parent) {}
 
@@ -11,17 +11,18 @@ void StitchingPlayer::attachPlayer(VideoPlayer* p) {
 
     if (winHandle) player->setWindowHandle(winHandle);
 
-    // Propagate player events
     connect(player, SIGNAL(eos()), this, SLOT(onPlayerEos()));
     connect(player, SIGNAL(errorText(QString)), this, SIGNAL(errorText(QString)));
 
-    // Map file-local position → global seconds for the UI slider
     connect(player, &VideoPlayer::positionNs, this, [this](gint64 inSegNs){
         if (offsets.isEmpty()) return;
         const qint64 base = (curIndex >= 0 && curIndex < offsets.size()) ? offsets[curIndex] : 0;
         const qint64 global = base + inSegNs;
         emit globalPositionSec(int(global / GST_SECOND));
     });
+
+    // apply current rate to newly attached player
+    player->setRate(desiredRate_);
 }
 
 void StitchingPlayer::setVideoWinId(quintptr wid) {
@@ -43,29 +44,31 @@ void StitchingPlayer::setTimeline(const QVector<SegmentMeta>& metas) {
     }
 }
 
+void StitchingPlayer::setRate(double r) {
+    desiredRate_ = (r == 0.0 ? 1.0 : r);
+    if (player) player->setRate(desiredRate_);
+}
+
 void StitchingPlayer::startIndex(int idx) {
     if (!player || paths.isEmpty()) return;
     if (idx < 0) idx = 0;
     if (idx > (int)paths.size()-1) idx = (int)paths.size()-1;
     curIndex = idx;
 
-    emit segmentChanged(curIndex);  // notify UI for tick highlighting etc.
+    emit segmentChanged(curIndex);
 
     if (!player->open(paths[curIndex])) {
         emit errorText(QString("Failed to open %1").arg(paths[curIndex]));
         return;
     }
+    player->setRate(desiredRate_);
     qDebug() << "[Stitching] playing ->" << paths[curIndex];
     player->play();
 }
 
-void StitchingPlayer::play() {
-    startIndex(0);
-}
+void StitchingPlayer::play() { startIndex(0); }
 
-void StitchingPlayer::stop() {
-    if (player) player->stop();
-}
+void StitchingPlayer::stop() { if (player) player->stop(); }
 
 int StitchingPlayer::indexForNs(qint64 t_ns, qint64* inSegNs) const {
     int n = offsets.size();
@@ -87,18 +90,12 @@ bool StitchingPlayer::seekGlobalNs(qint64 t_ns) {
     qint64 inSeg = 0;
     int idx = indexForNs(t_ns, &inSeg);
 
-    if (idx != curIndex) {
-
-        startIndex(idx);
-    }
+    if (idx != curIndex) startIndex(idx);
     return player->seekNs(inSeg);
 }
 
 void StitchingPlayer::onPlayerEos() {
     int next = curIndex + 1;
-    if (next < paths.size()) {
-        startIndex(next);
-    } else {
-        emit reachedEOS();
-    }
+    if (next < paths.size()) startIndex(next);
+    else emit reachedEOS();
 }

@@ -4,7 +4,7 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
-
+#include <QComboBox>
 
 #include <gst/gst.h>  // GST_SECOND
 
@@ -22,7 +22,13 @@ MainWindow::MainWindow(QWidget* parent)
     btnPlay  = new QPushButton("Play");
     btnStop  = new QPushButton("Stop");
     btnTrim  = new QPushButton("Trim");
+    btnFwd   = new QPushButton(">> +10s");
+    speedBox = new QComboBox;
+    speedBox->addItems({"0.5x","1x","2x","4x"});
+    speedBox->setCurrentIndex(1);
 
+    h->addWidget(btnFwd);
+    h->addWidget(speedBox);
     h->addWidget(btnTrim);
     connect(btnTrim, &QPushButton::clicked, this, &MainWindow::openTrim);
     h->addWidget(btnBuild);
@@ -82,6 +88,20 @@ MainWindow::MainWindow(QWidget* parent)
 
     // ---- exporter ----
     exporter = new FfmpegExporter(this);
+
+    connect(btnFwd, &QPushButton::clicked, this, [this]{
+        if (metas.isEmpty()) return;
+        int sec = slider->value() + 10;
+        if (sec > slider->maximum()) sec = slider->maximum();
+        slider->setValue(sec);
+        stitcher.seekGlobalNs(qint64(sec) * GST_SECOND);
+    });
+    connect(speedBox, &QComboBox::currentTextChanged, this, [this](const QString& t){
+        // parse "Nx"
+        double r = t.left(t.size()-1).toDouble();
+        if (r <= 0.0) r = 1.0;
+        stitcher.setRate(r);
+    });
 }
 
 void MainWindow::buildTimeline() {

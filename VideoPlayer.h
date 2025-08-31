@@ -9,42 +9,45 @@ typedef struct _GstElement GstElement;
 typedef struct _GstBus     GstBus;
 typedef struct _GstMessage GstMessage;
 
+class QTimer;
+
 class VideoPlayer : public QObject {
     Q_OBJECT
 public:
     explicit VideoPlayer(QObject* parent=nullptr);
     ~VideoPlayer();
 
-    void setWindowHandle(quintptr wid);     // Qt native child window
-    bool open(const QString& path);         // build pipeline for file and preroll
+    void setWindowHandle(quintptr wid);
+    bool open(const QString& path);
     void play();
     void pause();
     void stop();
-    bool seekNs(qint64 t_ns);               // GST_FORMAT_TIME
+
+    bool seekNs(qint64 t_ns);          // keep current speed
+    bool setRate(double r);            // change playback speed
+    double rate() const { return rate_; }
 
 signals:
     void eos();
     void errorText(const QString&);
-    void positionNs(gint64 pos_ns);   // <— NEW
-    void durationNs(gint64 dur_ns);   // <— NEW
-
+    void positionNs(qint64);
+    void durationNs(qint64);
 
 private:
-    // pipeline
-    GstElement* pipeline   = nullptr;
-    GstElement* filesrc    = nullptr;
-    GstElement* demux      = nullptr;   // qtdemux
-    GstElement* parser     = nullptr;   // h264parse
-    GstElement* decoder    = nullptr;   // avdec_h264
-    GstElement* vconv      = nullptr;   // videoconvert
-    GstElement* videosink  = nullptr;   // glimagesink / ximagesink
-    quintptr    winHandle  = 0;
-
-    // helpers
+    static gboolean bus_cb(GstBus*, GstMessage*, gpointer);
     void bindOverlay();
     void teardown();
 
-    // bus
-    static gboolean bus_cb(GstBus*, GstMessage*, gpointer self);
-    QTimer* posTimer = nullptr;
+    // pipeline
+    GstElement* pipeline=nullptr;
+    GstElement* filesrc=nullptr;
+    GstElement* demux=nullptr;
+    GstElement* parser=nullptr;
+    GstElement* decoder=nullptr;
+    GstElement* vconv=nullptr;
+    GstElement* videosink=nullptr;
+
+    quintptr winHandle=0;
+    QTimer*  posTimer=nullptr;
+    double   rate_=1.0;   // current playback rate
 };

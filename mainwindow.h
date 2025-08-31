@@ -13,7 +13,7 @@
 #include "FfmpegExporter.h"
 #include <QDir>
 
-class QPushButton; class QSlider; class QLabel; class QWidget;
+class QPushButton; class QSlider; class QLabel; class QWidget; class QComboBox;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -50,4 +50,6 @@ private:
     //trim
     QPushButton* btnTrim = nullptr;
     FfmpegExporter* exporter = nullptr;
+    QPushButton* btnFwd=nullptr;     // +10s
+    QComboBox*  speedBox=nullptr;    // 0.5x..4x
 };
